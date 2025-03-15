@@ -169,8 +169,8 @@ vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 -- Great jk
 vim.keymap.set('i', 'jk', '<esc>')
 
-vim.keymap.set('i', '<F5>', "<esc>:w<enter>:call system('python3 prog.py')<enter>i")
-vim.keymap.set('n', '<F5>', ":w<enter>:call system('python3 prog.py')<enter>")
+vim.keymap.set('i', '<F5>', "<esc>:w<enter>:call system('python3 ' . expand('%'))<enter>i")
+vim.keymap.set('n', '<F5>', ":w<enter>:call system('python3 ' . expand('%'))<enter>")
 
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
@@ -646,7 +646,7 @@ require('lazy').setup({
         clangd = {},
         -- gopls = {},
         pyright = {},
-        kotlin_language_server = {},
+        kotlin_language_server = { cmd = { 'cgexec', '-g', 'memory,cpu:javagroup', 'kotlin-language-server' } },
         -- rust_analyzer = {},
         -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
         --
@@ -745,9 +745,15 @@ require('lazy').setup({
         lua = { 'stylua' },
         -- Conform can also run multiple formatters sequentially
         python = { 'isort', 'black' },
+        kotlin = { 'ktfmt' },
         --
         -- You can use 'stop_after_first' to run the first available formatter from the list
         -- javascript = { "prettierd", "prettier", stop_after_first = true },
+      },
+      formatters = {
+        ktfmt = {
+          prepend_args = { '--kotlinlang-style' },
+        },
       },
     },
   },
