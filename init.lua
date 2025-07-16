@@ -169,8 +169,8 @@ vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 -- Great jk
 vim.keymap.set('i', 'jk', '<esc>')
 
-vim.keymap.set('i', '<F5>', "<esc>:w<enter>:call system('python3 ' . expand('%'))<enter>i")
-vim.keymap.set('n', '<F5>', ":w<enter>:call system('python3 ' . expand('%'))<enter>")
+--vim.keymap.set('i', '<F5>', "<esc>:w<enter>:call system('python3 ' . expand('%'))<enter>i")
+--vim.keymap.set('n', '<F5>', ":w<enter>:call system('python3 ' . expand('%'))<enter>")
 
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
@@ -197,6 +197,80 @@ vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to the left wind
 vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
 vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
 vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
+
+-- настройка quickfix навигации
+vim.keymap.set('n', '<leader>n', ':cnext<CR>', { noremap = true, silent = true, desc = 'Next quickfix item' })
+vim.keymap.set('n', '<leader>p', ':cprevious<CR>', { noremap = true, silent = true, desc = 'Previous quickfix item' })
+
+-- волшебный F5 - сборка QEMU
+vim.keymap.set({ 'n', 'i' }, '<F5>', function()
+  vim.cmd 'wa' -- Сохраняем всё
+
+  -- Проверяем, открыт ли QuickFix ДО сборки
+  local was_quickfix_open = #vim.fn.filter(vim.fn.getwininfo(), 'v:val.quickfix && !v:val.loclist') > 0
+
+  local job_output = {}
+  local root_dir = vim.fn.getcwd() -- Корень проекта (где Makefile)
+  local build_dir = root_dir .. '/build' -- Папка сборки QEMU
+
+  -- Запускаем make в папке build/
+  local job_id = vim.fn.jobstart('make -j20', {
+    cwd = build_dir, -- Важно: собираем в build/
+    stdout_buffered = true,
+    stderr_buffered = true,
+    on_stdout = function(_, data, _)
+      for _, line in ipairs(data) do
+        if line ~= '' then
+          table.insert(job_output, line)
+        end
+      end
+    end,
+    on_stderr = function(_, data, _)
+      for _, line in ipairs(data) do
+        if line ~= '' then
+          table.insert(job_output, line)
+        end
+      end
+    end,
+    on_exit = function(_, exit_code, _)
+      vim.schedule(function()
+        -- Фиксим пути (заменяем ../ на ./)
+        local fixed_output = {}
+        for _, line in ipairs(job_output) do
+          local fixed_line = line:gsub('%.%./(%S+)', './%1')
+          table.insert(fixed_output, fixed_line)
+        end
+
+        -- Обновляем QuickFix
+        vim.fn.setqflist({}, ' ', {
+          title = 'QEMU Build',
+          lines = fixed_output,
+          efm = '%f:%l:%c: %m', -- Формат ошибок GCC/Clang
+        })
+
+        if exit_code == 0 then
+          vim.notify(' QEMU собран успешно!', vim.log.levels.INFO, {
+            title = 'QEMU Build',
+            icon = '', -- или "✓", "" (Nerd Font)
+            hl_group = 'DiffAdd', -- Подсветка зелёным
+          })
+          if was_quickfix_open then
+            vim.cmd 'cclose' -- Закрываем QuickFix, если он был открыт
+          end
+        else
+          vim.notify('❌ Ошибка сборки QEMU!', vim.log.levels.ERROR)
+          vim.cmd 'copen' -- Показываем ошибки
+        end
+      end)
+    end,
+  })
+
+  if job_id <= 0 then
+    vim.notify('Ошибка запуска make!', vim.log.levels.ERROR)
+  else
+    vim.notify('🔧 Сборка QEMU (make -j20)...', vim.log.levels.INFO)
+  end
+end, { noremap = true, silent = true })
 
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
@@ -287,6 +361,28 @@ require('lazy').setup({
         changedelete = { text = '~' },
       },
     },
+  },
+
+  {
+    'rcarriga/nvim-notify',
+    opts = { -- Настройки здесь (аналог .setup())
+      stages = 'fade',
+      timeout = 3000,
+      background_colour = '#1e1e2e',
+      icons = {
+        ERROR = '',
+        WARN = '',
+        INFO = '',
+        DEBUG = '',
+      },
+      -- Дополнительные параметры...
+    },
+    config = function(_, opts)
+      require('notify').setup(opts) -- Автоматически применит opts
+
+      -- Пример кастомных уведомлений (опционально)
+      vim.notify = require 'notify' -- Переопределить стандартный vim.notify
+    end,
   },
 
   { 'tpope/vim-fugitive' },
@@ -647,6 +743,11 @@ require('lazy').setup({
         -- gopls = {},
         pyright = {},
         kotlin_language_server = { cmd = { 'cgexec', '-g', 'memory,cpu:javagroup', 'kotlin-language-server' } },
+        ltex = {
+          dictionary = {
+            ['ru-RU'] = { 'virtio', 'Sementsov-Ogievskiy' },
+          },
+        },
         -- rust_analyzer = {},
         -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
         --
@@ -1013,7 +1114,7 @@ require('lazy').setup({
   require 'kickstart.plugins.lint',
   require 'kickstart.plugins.autopairs',
   -- require 'kickstart.plugins.neo-tree',
-  -- require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
+  require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
 
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
   --    This is the easiest way to modularize your config.
