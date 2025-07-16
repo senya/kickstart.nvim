@@ -206,8 +206,8 @@ vim.keymap.set('n', '<leader>p', ':cprevious<CR>', { noremap = true, silent = tr
 vim.keymap.set({ 'n', 'i' }, '<F5>', function()
   vim.cmd 'wa' -- Сохраняем всё
 
-  -- Проверяем, открыт ли QuickFix ДО сборки
-  local was_quickfix_open = #vim.fn.filter(vim.fn.getwininfo(), 'v:val.quickfix && !v:val.loclist') > 0
+  -- Закрываем QuickFix сразу при нажатии F5
+  vim.cmd 'cclose'
 
   local job_output = {}
   local root_dir = vim.fn.getcwd() -- Корень проекта (где Makefile)
@@ -254,12 +254,10 @@ vim.keymap.set({ 'n', 'i' }, '<F5>', function()
             icon = '', -- или "✓", "" (Nerd Font)
             hl_group = 'DiffAdd', -- Подсветка зелёным
           })
-          if was_quickfix_open then
-            vim.cmd 'cclose' -- Закрываем QuickFix, если он был открыт
-          end
+          -- При успешной сборке quickfix остается закрытым
         else
           vim.notify('❌ Ошибка сборки QEMU!', vim.log.levels.ERROR)
-          vim.cmd 'copen' -- Показываем ошибки
+          vim.cmd 'copen' -- Открываем QuickFix только при ошибках
         end
       end)
     end,
