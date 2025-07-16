@@ -213,6 +213,14 @@ vim.keymap.set({ 'n', 'i' }, '<F5>', function()
   local root_dir = vim.fn.getcwd() -- Корень проекта (где Makefile)
   local build_dir = root_dir .. '/build' -- Папка сборки QEMU
 
+  -- Создаем индикатор сборки через fidget
+  local fidget = require('fidget')
+  local build_progress = fidget.progress.handle.create({
+    title = "QEMU Build",
+    message = "Сборка...",
+    lsp_client = { name = "make" },
+  })
+
   -- Запускаем make в папке build/
   local job_id = vim.fn.jobstart('make -j20', {
     cwd = build_dir, -- Важно: собираем в build/
@@ -234,6 +242,11 @@ vim.keymap.set({ 'n', 'i' }, '<F5>', function()
     end,
     on_exit = function(_, exit_code, _)
       vim.schedule(function()
+        -- Завершаем индикатор сборки
+        if build_progress then
+          build_progress:finish()
+        end
+        
         -- Фиксим пути (заменяем ../ на ./)
         local fixed_output = {}
         for _, line in ipairs(job_output) do
@@ -264,9 +277,11 @@ vim.keymap.set({ 'n', 'i' }, '<F5>', function()
   })
 
   if job_id <= 0 then
+    -- Завершаем индикатор при ошибке запуска
+    if build_progress then
+      build_progress:cancel()
+    end
     vim.notify('Ошибка запуска make!', vim.log.levels.ERROR)
-  else
-    vim.notify('🔧 Сборка QEMU (make -j20)...', vim.log.levels.INFO)
   end
 end, { noremap = true, silent = true })
 
