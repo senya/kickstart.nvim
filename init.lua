@@ -242,11 +242,6 @@ vim.keymap.set({ 'n', 'i' }, '<F5>', function()
     end,
     on_exit = function(_, exit_code, _)
       vim.schedule(function()
-        -- Завершаем индикатор сборки
-        if build_progress then
-          build_progress:finish()
-        end
-        
         -- Фиксим пути (заменяем ../ на ./)
         local fixed_output = {}
         for _, line in ipairs(job_output) do
@@ -262,14 +257,27 @@ vim.keymap.set({ 'n', 'i' }, '<F5>', function()
         })
 
         if exit_code == 0 then
-          vim.notify(' QEMU собран успешно!', vim.log.levels.INFO, {
-            title = 'QEMU Build',
-            icon = '', -- или "✓", "" (Nerd Font)
-            hl_group = 'DiffAdd', -- Подсветка зелёным
-          })
+          -- Обновляем fidget индикатор для показа успеха
+          if build_progress then
+            build_progress:report({ message = "✓ Успешно собран!" })
+            vim.defer_fn(function()
+              if build_progress then
+                build_progress:finish()
+              end
+            end, 1500) -- Показываем успех 1.5 секунды
+          end
           -- При успешной сборке quickfix остается закрытым
         else
-          vim.notify('❌ Ошибка сборки QEMU!', vim.log.levels.ERROR)
+          -- При ошибке завершаем индикатор и открываем quickfix
+          if build_progress then
+            build_progress:report({ message = "❌ Ошибка сборки QEMU!" })
+            vim.defer_fn(function()
+              if build_progress then
+                build_progress:cancel()
+              end
+            end, 1500) -- Показываем неуспех 1.5 секунды
+            -- build_progress:cancel()
+          end
           vim.cmd 'copen' -- Открываем QuickFix только при ошибках
         end
       end)
