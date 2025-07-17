@@ -214,12 +214,12 @@ vim.keymap.set({ 'n', 'i' }, '<F5>', function()
   local build_dir = root_dir .. '/build' -- Папка сборки QEMU
 
   -- Создаем индикатор сборки через fidget
-  local fidget = require('fidget')
-  local build_progress = fidget.progress.handle.create({
-    title = "QEMU Build",
-    message = "Сборка...",
-    lsp_client = { name = "make" },
-  })
+  local fidget = require 'fidget'
+  local build_progress = fidget.progress.handle.create {
+    title = 'QEMU Build',
+    message = 'Сборка...',
+    lsp_client = { name = 'make' },
+  }
 
   -- Запускаем make в папке build/
   local job_id = vim.fn.jobstart('make -j20', {
@@ -259,23 +259,23 @@ vim.keymap.set({ 'n', 'i' }, '<F5>', function()
         if exit_code == 0 then
           -- Обновляем fidget индикатор для показа успеха
           if build_progress then
-            build_progress:report({ message = "✓ Успешно собран!" })
+            build_progress:report { message = '✓ Успешно собран!' }
             vim.defer_fn(function()
               if build_progress then
                 build_progress:finish()
               end
-            end, 1500) -- Показываем успех 1.5 секунды
+            end, 500) -- Показываем успех 0.5 секунды
           end
           -- При успешной сборке quickfix остается закрытым
         else
           -- При ошибке завершаем индикатор и открываем quickfix
           if build_progress then
-            build_progress:report({ message = "❌ Ошибка сборки QEMU!" })
+            build_progress:report { message = '❌ Ошибка сборки QEMU!' }
             vim.defer_fn(function()
               if build_progress then
                 build_progress:cancel()
               end
-            end, 1500) -- Показываем неуспех 1.5 секунды
+            end, 500) -- Показываем неуспех 0.5 секунды
             -- build_progress:cancel()
           end
           vim.cmd 'copen' -- Открываем QuickFix только при ошибках
@@ -322,7 +322,6 @@ vim.api.nvim_create_autocmd({ 'BufRead', 'BufNewFile' }, {
     vim.bo.filetype = 'gitcommit'
   end,
 })
-
 
 local function is_file_committed(file_path)
   -- Выполняем команду git ls-files с флагом --error-unmatch, чтобы проверить наличие файла в коммите
