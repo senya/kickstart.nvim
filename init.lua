@@ -967,11 +967,56 @@ require('lazy').setup({
           --  This will expand snippets if the LSP sent a snippet.
           ['<C-y>'] = cmp.mapping.confirm { select = true },
 
-          -- If you prefer more traditional completion keymaps,
-          -- you can uncomment the following lines
-          --['<CR>'] = cmp.mapping.confirm { select = true },
-          --['<Tab>'] = cmp.mapping.select_next_item(),
-          --['<S-Tab>'] = cmp.mapping.select_prev_item(),
+          -- ИСПРАВЛЕНО: Интеграция с нашей умной функцией TAB
+          ['<Tab>'] = cmp.mapping(function(fallback)
+            -- Если есть видимое меню автодополнения, выбираем следующий элемент
+            if cmp.visible() then
+              cmp.select_next_item()
+            -- Если LuaSnip может расшириться или перейти к следующему placeholder
+            elseif luasnip.expand_or_locally_jumpable() then
+              luasnip.expand_or_jump()
+            -- Иначе используем нашу умную функцию выхода из скобок
+            else
+              -- Получаем текущую строку и позицию курсора
+              local line = vim.api.nvim_get_current_line()
+              local col = vim.api.nvim_win_get_cursor(0)[2]
+              
+              -- Ищем ближайшую закрывающую скобку справа от курсора
+              local closing_chars = { ')', ']', '}', "'", '"', '`' }
+              local closest_pos = nil
+              
+              for i = col + 1, #line do
+                local char = line:sub(i, i)
+                for _, closing in ipairs(closing_chars) do
+                  if char == closing then
+                    closest_pos = i
+                    break
+                  end
+                end
+                if closest_pos then break end
+              end
+              
+              -- Если нашли закрывающую скобку, перемещаемся за неё
+              if closest_pos then
+                vim.api.nvim_win_set_cursor(0, { vim.api.nvim_win_get_cursor(0)[1], closest_pos })
+              else
+                fallback()
+              end
+            end
+          end, { 'i', 's' }),
+
+          ['<S-Tab>'] = cmp.mapping(function(fallback)
+            -- Если есть видимое меню автодополнения, выбираем предыдущий элемент
+            if cmp.visible() then
+              cmp.select_prev_item()
+            -- Если LuaSnip может перейти назад
+            elseif luasnip.locally_jumpable(-1) then
+              luasnip.jump(-1)
+            -- Иначе передаем управление tabout (fallback)
+            else
+              fallback()
+            end
+          end, { 'i', 's' }),
 
           -- Manually trigger a completion from nvim-cmp.
           --  Generally you don't need this, because nvim-cmp will display
@@ -1019,15 +1064,46 @@ require('lazy').setup({
     'abecodes/tabout.nvim',
     lazy = false,
     config = function()
+      -- Создаем собственную функцию для умного выхода из скобок
+      local function smart_tab_out()
+        local line = vim.api.nvim_get_current_line()
+        local col = vim.api.nvim_win_get_cursor(0)[2]
+        
+        -- Ищем ближайшую закрывающую скобку справа от курсора
+        local closing_chars = { ')', ']', '}', "'", '"', '`' }
+        local closest_pos = nil
+        local closest_char = nil
+        
+        for i = col + 1, #line do
+          local char = line:sub(i, i)
+          for _, closing in ipairs(closing_chars) do
+            if char == closing then
+              closest_pos = i
+              closest_char = closing
+              break
+            end
+          end
+          if closest_pos then break end
+        end
+        
+        -- Если нашли закрывающую скобку, перемещаемся за неё
+        if closest_pos then
+          vim.api.nvim_win_set_cursor(0, { vim.api.nvim_win_get_cursor(0)[1], closest_pos })
+          return true
+        end
+        
+        return false
+      end
+      
       require('tabout').setup {
-        tabkey = '<Tab>', -- key to trigger tabout, set to an empty string to disable
-        backwards_tabkey = '<S-Tab>', -- key to trigger backwards tabout, set to an empty string to disable
-        act_as_tab = true, -- shift content if tab out is not possible
-        act_as_shift_tab = false, -- reverse shift content if tab out is not possible (if your keyboard/terminal supports <S-Tab>)
-        default_tab = '<C-t>', -- shift default action (only at the beginning of a line, otherwise <TAB> is used)
-        default_shift_tab = '<C-d>', -- reverse shift default action,
-        enable_backwards = true, -- well ...
-        completion = false, -- if the tabkey is used in a completion pum
+        tabkey = '', -- ОТКЛЮЧАЕМ стандартный tabkey, будем использовать свой
+        backwards_tabkey = '<S-Tab>',
+        act_as_tab = true,
+        act_as_shift_tab = false,
+        default_tab = '<C-t>',
+        default_shift_tab = '<C-d>',
+        enable_backwards = true,
+        completion = true,
         tabouts = {
           { open = "'", close = "'" },
           { open = '"', close = '"' },
@@ -1036,17 +1112,34 @@ require('lazy').setup({
           { open = '[', close = ']' },
           { open = '{', close = '}' },
         },
-        ignore_beginning = false, --[[ if the cursor is at the beginning of a filled element it will rather tab out than shift the content ]]
-        exclude = {}, -- tabout will ignore these filetypes
+        ignore_beginning = true,
+        exclude = {},
       }
+      
+      -- Создаем собственный маппинг для TAB в insert mode
+      vim.keymap.set('i', '<Tab>', function()
+        -- Сначала пробуем нашу умную функцию
+        if smart_tab_out() then
+          return
+        end
+        
+        -- Если не получилось, пробуем стандартный tabout
+        local tabout = require('tabout')
+        if tabout and tabout.tabout then
+          tabout.tabout()
+        else
+          -- Если и tabout не сработал, вставляем обычный tab
+          vim.api.nvim_feedkeys('\t', 'n', false)
+        end
+      end, { desc = 'Smart tab out of brackets' })
     end,
-    dependencies = { -- These are optional
+    dependencies = {
       'nvim-treesitter/nvim-treesitter',
       'L3MON4D3/LuaSnip',
       'hrsh7th/nvim-cmp',
     },
-    opt = true, -- Set this to true if the plugin is optional
-    event = 'InsertCharPre', -- Set the event to 'InsertCharPre' for better compatibility
+    opt = true,
+    event = 'InsertCharPre',
     priority = 1000,
   },
 
