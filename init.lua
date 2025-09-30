@@ -323,6 +323,47 @@ vim.api.nvim_create_autocmd({ 'BufRead', 'BufNewFile' }, {
   end,
 })
 
+-- Настройки для C/C++ файлов - исправляем проблемы с gq и отступами
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = { 'c', 'cpp' },
+  callback = function()
+    -- Дефолтные настройки отступов для новых файлов
+    -- vim-sleuth переопределит их если обнаружит другой стиль в существующем файле
+    if vim.bo.shiftwidth == 8 then -- дефолтное значение vim
+      vim.bo.shiftwidth = 4
+      vim.bo.tabstop = 4
+      vim.bo.softtabstop = 4
+      vim.bo.expandtab = true
+    end
+    
+    -- Ключевые настройки для правильной работы gq с комментариями
+    vim.bo.cindent = true -- включает умное форматирование для C
+    
+    -- cinoptions - настройки отступов для C конструкций:
+    -- :0  - case labels на том же уровне что и switch
+    -- l1  - align with case label instead of statement after it in the same line
+    -- t0  - function return type declarations не добавляют отступ
+    -- g0  - C++ scope declarations (public:, private:) на уровне class
+    -- (0  - при переносе строки в скобках, выравнивать по открывающей скобке
+    vim.bo.cinoptions = ':0,l1,t0,g0,(0'
+    
+    -- Настройки форматирования текста
+    vim.bo.textwidth = 80 -- ширина строки для переноса
+    
+    -- formatoptions - опции автоматического форматирования:
+    -- c - автоматически переносить комментарии при достижении textwidth
+    -- r - автоматически вставлять символ комментария после Enter в режиме вставки
+    -- o - автоматически вставлять символ комментария после o/O в нормальном режиме
+    -- q - разрешить форматирование комментариев с помощью gq
+    -- n - распознавать нумерованные списки при форматировании
+    -- j - удалять символ комментария при объединении строк (J)
+    vim.bo.formatoptions = 'croqnj'
+    
+    -- Определение того, что считается комментарием для правильного форматирования
+    vim.bo.comments = 'sO:* -,mO:*  ,exO:*/,s1:/*,mb:*,ex:*/,://'
+  end,
+})
+
 local function is_file_committed(file_path)
   -- Выполняем команду git ls-files с флагом --error-unmatch, чтобы проверить наличие файла в коммите
   local command = 'git ls-files --error-unmatch ' .. file_path .. ' 2> /dev/null'
@@ -768,7 +809,13 @@ require('lazy').setup({
       --  - settings (table): Override the default settings passed when initializing the server.
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
-        clangd = {},
+        clangd = {
+          cmd = {
+            "clangd",
+            "--header-insertion=never",
+            "--suggest-missing-includes=false",
+          },
+        },
         -- gopls = {},
         pyright = {},
         kotlin_language_server = { cmd = { 'cgexec', '-g', 'memory,cpu:javagroup', 'kotlin-language-server' } },
