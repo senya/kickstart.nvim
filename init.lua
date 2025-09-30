@@ -935,7 +935,12 @@ require('lazy').setup({
           prepend_args = { '--kotlinlang-style' },
         },
         clang_format = {
-          prepend_args = { '--style={IndentWidth: 4, UseTab: Never}' },
+          prepend_args = {
+            '--style={IndentWidth: 4, UseTab: Never, BreakBeforeBraces: Custom, '
+            .. 'BraceWrapping: {AfterFunction: true, AfterControlStatement: false, '
+            .. 'AfterClass: false, AfterStruct: false, AfterEnum: false, '
+            .. 'AfterNamespace: false, BeforeElse: false, BeforeCatch: false, BeforeWhile: false}}'
+          },
         },
       },
     },
