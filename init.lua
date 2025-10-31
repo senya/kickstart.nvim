@@ -159,6 +159,25 @@ vim.opt.scrolloff = 10
 
 vim.opt.diffopt = vim.opt.diffopt + { 'vertical' }
 
+-- Настройки отступов по умолчанию (заменяют vim-sleuth)
+vim.opt.shiftwidth = 4 -- количество пробелов для отступа
+vim.opt.tabstop = 4 -- ширина табуляции
+vim.opt.softtabstop = 4 -- количество пробелов при нажатии Tab
+vim.opt.expandtab = true -- использовать пробелы вместо табов
+vim.opt.smartindent = true -- умные отступы
+
+vim.opt.shell = '/usr/bin/fish'
+
+-- Настройка автодополнения в командной строке
+-- wildmode контролирует поведение Tab в командной строке
+-- 'list:longest' - показывает список и дополняет до самой длинной общей части
+-- 'full' - при повторном Tab циклически переключается между вариантами
+vim.opt.wildmode = 'list:longest,full'
+
+-- Дополнительные настройки для удобства
+vim.opt.wildmenu = true -- включает визуальное меню автодополнения
+vim.opt.wildignore = '*.o,*.obj,*.pyc,*.class,*.git,*.svn' -- игнорируемые файлы
+
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
 
@@ -181,7 +200,7 @@ vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagn
 --
 -- NOTE: This won't work in all terminal emulators/tmux/etc. Try your own mapping
 -- or just use <C-\><C-n> to exit terminal mode
-vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
+vim.keymap.set('t', 'jk', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
 
 -- TIP: Disable arrow keys in normal mode
 -- vim.keymap.set('n', '<left>', '<cmd>echo "Use h to move!!"<CR>')
@@ -327,18 +346,15 @@ vim.api.nvim_create_autocmd({ 'BufRead', 'BufNewFile' }, {
 vim.api.nvim_create_autocmd('FileType', {
   pattern = { 'c', 'cpp' },
   callback = function()
-    -- Дефолтные настройки отступов для новых файлов
-    -- vim-sleuth переопределит их если обнаружит другой стиль в существующем файле
-    if vim.bo.shiftwidth == 8 then -- дефолтное значение vim
-      vim.bo.shiftwidth = 4
-      vim.bo.tabstop = 4
-      vim.bo.softtabstop = 4
-      vim.bo.expandtab = true
-    end
-    
+    -- Устанавливаем стандартные настройки отступов для C/C++
+    vim.bo.shiftwidth = 4
+    vim.bo.tabstop = 4
+    vim.bo.softtabstop = 4
+    vim.bo.expandtab = true
+
     -- Ключевые настройки для правильной работы gq с комментариями
     vim.bo.cindent = true -- включает умное форматирование для C
-    
+
     -- cinoptions - настройки отступов для C конструкций:
     -- :0  - case labels на том же уровне что и switch
     -- l1  - align with case label instead of statement after it in the same line
@@ -346,10 +362,10 @@ vim.api.nvim_create_autocmd('FileType', {
     -- g0  - C++ scope declarations (public:, private:) на уровне class
     -- (0  - при переносе строки в скобках, выравнивать по открывающей скобке
     vim.bo.cinoptions = ':0,l1,t0,g0,(0'
-    
+
     -- Настройки форматирования текста
     vim.bo.textwidth = 80 -- ширина строки для переноса
-    
+
     -- formatoptions - опции автоматического форматирования:
     -- c - автоматически переносить комментарии при достижении textwidth
     -- r - автоматически вставлять символ комментария после Enter в режиме вставки
@@ -358,9 +374,25 @@ vim.api.nvim_create_autocmd('FileType', {
     -- n - распознавать нумерованные списки при форматировании
     -- j - удалять символ комментария при объединении строк (J)
     vim.bo.formatoptions = 'croqnj'
-    
+
     -- Определение того, что считается комментарием для правильного форматирования
     vim.bo.comments = 'sO:* -,mO:*  ,exO:*/,s1:/*,mb:*,ex:*/,://'
+  end,
+})
+
+-- Настройки для Python файлов - устанавливаем правильные отступы
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = { 'python' },
+  callback = function()
+    -- Устанавливаем стандартные настройки отступов для Python (PEP 8)
+    vim.bo.shiftwidth = 4
+    vim.bo.tabstop = 4
+    vim.bo.softtabstop = 4
+    vim.bo.expandtab = true
+
+    -- Настройки форматирования для Python
+    vim.bo.textwidth = 79 -- PEP 8 рекомендует 79 символов
+    vim.bo.formatoptions = 'croqnj'
   end,
 })
 
@@ -406,7 +438,7 @@ vim.opt.rtp:prepend(lazypath)
 -- NOTE: Here is where you install your plugins.
 require('lazy').setup({
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
-  'tpope/vim-sleuth', -- Detect tabstop and shiftwidth automatically
+  -- 'tpope/vim-sleuth', -- Detect tabstop and shiftwidth automatically (удален из-за багов с Python)
 
   -- NOTE: Plugins can also be added by using a table,
   -- with the first argument being the link and the following
@@ -931,15 +963,25 @@ require('lazy').setup({
         -- javascript = { "prettierd", "prettier", stop_after_first = true },
       },
       formatters = {
+        stylua = {
+          prepend_args = { '--column-width=80' },
+        },
+        black = {
+          prepend_args = { '--line-length=80' },
+        },
+        isort = {
+          prepend_args = { '--line-length=80' },
+        },
         ktfmt = {
           prepend_args = { '--kotlinlang-style' },
         },
         clang_format = {
           prepend_args = {
             '--style={IndentWidth: 4, UseTab: Never, BreakBeforeBraces: Custom, '
-            .. 'BraceWrapping: {AfterFunction: true, AfterControlStatement: false, '
-            .. 'AfterClass: false, AfterStruct: false, AfterEnum: false, '
-            .. 'AfterNamespace: false, BeforeElse: false, BeforeCatch: false, BeforeWhile: false}}'
+              .. 'BraceWrapping: {AfterFunction: true, AfterControlStatement: false, '
+              .. 'AfterClass: false, AfterStruct: false, AfterEnum: false, '
+              .. 'AfterNamespace: false, BeforeElse: false, BeforeCatch: false, BeforeWhile: false}, '
+              .. 'ColumnLimit: 80}',
           },
         },
       },
@@ -1032,11 +1074,11 @@ require('lazy').setup({
               -- Получаем текущую строку и позицию курсора
               local line = vim.api.nvim_get_current_line()
               local col = vim.api.nvim_win_get_cursor(0)[2]
-              
+
               -- Ищем ближайшую закрывающую скобку справа от курсора
               local closing_chars = { ')', ']', '}', "'", '"', '`' }
               local closest_pos = nil
-              
+
               for i = col + 1, #line do
                 local char = line:sub(i, i)
                 for _, closing in ipairs(closing_chars) do
@@ -1045,9 +1087,11 @@ require('lazy').setup({
                     break
                   end
                 end
-                if closest_pos then break end
+                if closest_pos then
+                  break
+                end
               end
-              
+
               -- Если нашли закрывающую скобку, перемещаемся за неё
               if closest_pos then
                 vim.api.nvim_win_set_cursor(0, { vim.api.nvim_win_get_cursor(0)[1], closest_pos })
@@ -1111,7 +1155,6 @@ require('lazy').setup({
       }
     end,
   },
-
 
   { -- You can easily change to a different colorscheme.
     -- Change the name of the colorscheme plugin below, and then
