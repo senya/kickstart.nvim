@@ -846,6 +846,15 @@ require('lazy').setup({
             "clangd",
             "--header-insertion=never",
             "--suggest-missing-includes=false",
+            "--header-insertion-decorators=false",
+            "--completion-style=bundled",
+            "--clang-tidy=false",
+          },
+          init_options = {
+            clangdFileStatus = true,
+            usePlaceholders = false,
+            completeUnimported = false,
+            semanticHighlighting = true,
           },
         },
         -- gopls = {},
@@ -907,6 +916,19 @@ require('lazy').setup({
             -- by the server configuration above. Useful when disabling
             -- certain features of an LSP (for example, turning off formatting for ts_ls)
             server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
+            
+            -- Специальная обработка для clangd - отключаем дополнительные текстовые правки
+            if server_name == 'clangd' then
+              local original_on_attach = server.on_attach
+              server.on_attach = function(client, bufnr)
+                -- Отключаем возможность clangd делать дополнительные текстовые правки (включая инклуды)
+                client.server_capabilities.completionProvider.resolveProvider = false
+                if original_on_attach then
+                  original_on_attach(client, bufnr)
+                end
+              end
+            end
+            
             require('lspconfig')[server_name].setup(server)
           end,
         },
@@ -930,27 +952,8 @@ require('lazy').setup({
     },
     opts = {
       notify_on_error = false,
-      format_on_save = function(bufnr)
-        -- Disable "format_on_save lsp_fallback" for languages that don't
-        -- have a well standardized coding style. You can add additional
-        -- languages here or re-enable it for the disabled ones.
-        local disable_filetypes = { kt = true }
-        local lsp_format_opt
-
-        local bufname = vim.api.nvim_buf_get_name(bufnr)
-        if is_file_committed(bufname) then
-          return
-        end
-        if disable_filetypes[vim.bo[bufnr].filetype] then
-          lsp_format_opt = 'never'
-        else
-          lsp_format_opt = 'fallback'
-        end
-        return {
-          timeout_ms = 500,
-          lsp_format = lsp_format_opt,
-        }
-      end,
+      -- format_on_save отключен - форматирование только по <leader>f
+      format_on_save = false,
       formatters_by_ft = {
         lua = { 'stylua' },
         -- Conform can also run multiple formatters sequentially
@@ -1041,6 +1044,21 @@ require('lazy').setup({
           end,
         },
         completion = { completeopt = 'menu,menuone,noinsert' },
+        
+        -- Отключаем автоматические дополнительные правки (включая инклуды)
+        formatting = {
+          format = function(entry, vim_item)
+            -- Для clangd отключаем любые дополнительные правки
+            if entry.source.name == 'nvim_lsp' and entry.source.source and
+               entry.source.source.client and entry.source.source.client.name == 'clangd' then
+              -- Очищаем любые дополнительные текстовые правки
+              if vim_item.user_data and vim_item.user_data.nvim and vim_item.user_data.nvim.lsp then
+                vim_item.user_data.nvim.lsp.completion_item.additionalTextEdits = nil
+              end
+            end
+            return vim_item
+          end,
+        },
 
         -- For an understanding of why these mappings were
         -- chosen, you will need to read `:help ins-completion`
@@ -1059,7 +1077,10 @@ require('lazy').setup({
           -- Accept ([y]es) the completion.
           --  This will auto-import if your LSP supports it.
           --  This will expand snippets if the LSP sent a snippet.
-          ['<C-y>'] = cmp.mapping.confirm { select = true },
+          ['<C-y>'] = cmp.mapping.confirm {
+            select = true,
+            behavior = cmp.ConfirmBehavior.Replace,
+          },
 
           -- ИСПРАВЛЕНО: Интеграция с нашей умной функцией TAB
           ['<Tab>'] = cmp.mapping(function(fallback)
@@ -1153,6 +1174,21 @@ require('lazy').setup({
           { name = 'nvim_lsp_signature_help' },
         },
       }
+      
+      -- Перехватываем функцию применения дополнительных правок для блокировки инклудов
+      local original_apply_text_edits = vim.lsp.util.apply_text_edits
+      vim.lsp.util.apply_text_edits = function(text_edits, bufnr, offset_encoding)
+        -- Фильтруем правки, которые добавляют #include
+        local filtered_edits = {}
+        for _, edit in ipairs(text_edits or {}) do
+          local new_text = edit.newText or ""
+          -- Блокируем правки, которые содержат #include
+          if not new_text:match("#include") then
+            table.insert(filtered_edits, edit)
+          end
+        end
+        return original_apply_text_edits(filtered_edits, bufnr, offset_encoding)
+      end
     end,
   },
 
