@@ -1321,5 +1321,20 @@ require('lazy').setup({
   },
 })
 
+-- Настройка диагностики - включаем виртуальный текст с ошибками
+-- Устанавливаем через автокоманду после полной загрузки
+-- Непонятно, почему надо так сложно включать, но подругому у кляуда
+-- не получилось.
+vim.api.nvim_create_autocmd('VimEnter', {
+  callback = function()
+    vim.diagnostic.config({
+      virtual_text = true, -- Показывать сообщения об ошибках в конце строки
+      signs = true,        -- Показывать знаки в gutter
+      underline = true,    -- Подчеркивать ошибки
+      update_in_insert = false, -- Не обновлять диагностику в режиме вставки
+    })
+  end,
+})
+
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
