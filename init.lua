@@ -221,6 +221,16 @@ vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper win
 vim.keymap.set('n', '<leader>n', ':cnext<CR>', { noremap = true, silent = true, desc = 'Next quickfix item' })
 vim.keymap.set('n', '<leader>p', ':cprevious<CR>', { noremap = true, silent = true, desc = 'Previous quickfix item' })
 
+-- Диагностика строки под курсором - показать источник предупреждения/ошибки
+vim.keymap.set('n', '<leader>d', function()
+  local diagnostics = vim.diagnostic.get(0, {lnum = vim.fn.line('.') - 1})
+  if #diagnostics > 0 then
+    vim.print(diagnostics)
+  else
+    print("No diagnostics on current line")
+  end
+end, { noremap = true, silent = true, desc = '[D]iagnostic info for current line' })
+
 -- волшебный F5 - сборка QEMU
 vim.keymap.set({ 'n', 'i' }, '<F5>', function()
   vim.cmd 'wa' -- Сохраняем всё
