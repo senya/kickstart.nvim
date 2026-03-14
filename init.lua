@@ -222,7 +222,7 @@ vim.keymap.set('n', '<leader>n', ':cnext<CR>', { noremap = true, silent = true, 
 vim.keymap.set('n', '<leader>p', ':cprevious<CR>', { noremap = true, silent = true, desc = 'Previous quickfix item' })
 
 -- Диагностика строки под курсором - показать источник предупреждения/ошибки
-vim.keymap.set('n', '<leader>d', function()
+vim.keymap.set('n', '<leader>dd', function()
   local diagnostics = vim.diagnostic.get(0, {lnum = vim.fn.line('.') - 1})
   if #diagnostics > 0 then
     vim.print(diagnostics)
