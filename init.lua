@@ -146,7 +146,7 @@ vim.opt.timeoutlen = 300
 --  See `:help 'list'`
 --  and `:help 'listchars'`
 vim.opt.list = true
-vim.opt.listchars = { tab = '» ', trail = '·', nbsp = '␣' }
+vim.opt.listchars = { tab = '  ', trail = '·', nbsp = '␣' }
 
 -- Preview substitutions live, as you type!
 vim.opt.inccommand = 'split'
@@ -402,6 +402,22 @@ vim.api.nvim_create_autocmd('FileType', {
 
     -- Настройки форматирования для Python
     vim.bo.textwidth = 79 -- PEP 8 рекомендует 79 символов
+    vim.bo.formatoptions = 'croqnj'
+  end,
+})
+
+-- Настройки для Go файлов - устанавливаем правильные отступы и форматирование
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = { 'go' },
+  callback = function()
+    -- Go использует табы для отступов (стандарт языка)
+    vim.bo.shiftwidth = 4
+    vim.bo.tabstop = 4
+    vim.bo.softtabstop = 4
+    vim.bo.expandtab = false -- Go использует настоящие табы, не пробелы
+    
+    -- Настройки форматирования для Go
+    vim.bo.textwidth = 100 -- Go обычно использует более длинные строки
     vim.bo.formatoptions = 'croqnj'
   end,
 })
@@ -868,7 +884,7 @@ require('lazy').setup({
             semanticHighlighting = true,
           },
         },
-        -- gopls = {},
+        gopls = {},
         pyright = {},
         kotlin_lsp = {},
         -- rust_analyzer = {},
@@ -913,6 +929,7 @@ require('lazy').setup({
         'ktlint',
         'ktfmt',
         'markdownlint',
+        'goimports',
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
@@ -922,6 +939,7 @@ require('lazy').setup({
           'pyright',
           'kotlin_lsp',
           'lua_ls',
+          'gopls',
           'stylua',
         },
         handlers = {
@@ -976,6 +994,7 @@ require('lazy').setup({
         kotlin = { 'ktfmt' },
         c = { 'clang_format' },
         cpp = { 'clang_format' },
+        go = { 'goimports', 'gofmt' },
         --
         -- You can use 'stop_after_first' to run the first available formatter from the list
         -- javascript = { "prettierd", "prettier", stop_after_first = true },
@@ -1276,7 +1295,7 @@ require('lazy').setup({
         'bash', 'c', 'diff', 'html', 'lua', 'luadoc',
         'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc', 'python',
         -- Дополнительные парсеры для лучшей подсветки Markdown и RST
-        'json', 'yaml', 'toml', 'css', 'javascript', 'typescript', 'sql', 'rst'
+        'json', 'yaml', 'toml', 'css', 'javascript', 'typescript', 'sql', 'rst', 'go'
       },
       -- Autoinstall languages that are not installed
       auto_install = true,
