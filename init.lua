@@ -1309,7 +1309,7 @@ require('lazy').setup({
         -- Disable treesitter highlight for markdown due to injection query crash on nvim 0.12
         disable = { 'markdown', 'markdown_inline' },
       },
-      indent = { enable = true, disable = { 'ruby' } },
+      indent = { enable = true, disable = { 'ruby', 'c', 'cpp' } },
     },
     -- There are additional nvim-treesitter modules that you can use to interact
     -- with nvim-treesitter. You should go explore a few and see what interests you:
